@@ -1,0 +1,174 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Multiplication Report</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 70%; margin-bottom: 10px; }
+    th, td { border: 1px solid #aaa; padding: 8px; text-align: center; }
+    input { width: 70px; }
+    button { margin: 5px 0; padding: 6px 10px; }
+    .history-entry {
+      border: 1px solid #ccc;
+      padding: 10px;
+      background: #f8f8f8;
+      margin-top: 10px;
+    }
+    .timestamp {
+      font-size: 12px;
+      color: #666;
+    }
+    #loader { color: blue; font-weight: bold; display: none; }
+    #success { color: green; font-weight: bold; display: none; }
+  </style>
+</head>
+<body>
+
+  <h2>Multiplication Report</h2>
+
+  <table>
+    <thead>
+      <tr><th>Permanent</th><th>Temporary</th><th>Product</th></tr>
+    </thead>
+    <tbody id="multTable">
+      <tr><td><input type="number" value="30" readonly></td><td><input type="number" value="0" oninput="updateAll()"></td><td class="product">0</td></tr>
+      <tr><td><input type="number" value="35" readonly></td><td><input type="number" value="0" oninput="updateAll()"></td><td class="product">0</td></tr>
+      <tr><td><input type="number" value="80" readonly></td><td><input type="number" value="0" oninput="updateAll()"></td><td class="product">0</td></tr>
+      <tr><td><input type="number" value="75" readonly></td><td><input type="number" value="0" oninput="updateAll()"></td><td class="product">0</td></tr>
+      <tr><td><input type="number" value="95" readonly></td><td><input type="number" value="0" oninput="updateAll()"></td><td class="product">0</td></tr>
+      <tr><td><input type="number" value="8" readonly></td><td><input type="number" value="0" oninput="updateAll()"></td><td class="product">0</td></tr>
+    </tbody>
+  </table>
+
+  <div><strong>Total:</strong> <span id="total">0</span></div>
+  <div><strong>User Input:</strong> <input type="number" id="userInput" placeholder="Enter expected total"></div>
+  <button onclick="saveToHistory()">Save to History</button>
+  <button onclick="resetTemporary()">Reset Temporaries</button>
+  <button onclick="exportPDF()">📄 Export to PDF</button>
+
+  <h3>Send PDF via Email</h3>
+  <input type="email" id="emailInput" placeholder="Recipient email">
+  <button onclick="sendEmail()">📧 Send Email</button>
+  <div id="loader">⏳ Sending...</div>
+  <div id="success">✅ Email Sent!</div>
+
+  <h3>History Log</h3>
+  <div id="historyLog"></div>
+
+  <div id="printSection" style="display:none;">
+    <h3>Multiplication Report</h3>
+    <table border="1">
+      <thead><tr><th>Permanent</th><th>Temporary</th><th>Product</th></tr></thead>
+      <tbody id="pdfTable"></tbody>
+    </table>
+    <div><strong>Total:</strong> <span id="pdfTotal">0</span></div>
+    <div><strong>User Input:</strong> <span id="pdfInput">-</span></div>
+  </div>
+
+<script>
+function updateAll() {
+  const rows = document.querySelectorAll('#multTable tr');
+  let total = 0;
+  rows.forEach(row => {
+    const perm = parseFloat(row.cells[0].querySelector('input').value);
+    const temp = parseFloat(row.cells[1].querySelector('input').value);
+    const product = perm * temp;
+    row.cells[2].innerText = product;
+    total += product;
+  });
+  document.getElementById('total').innerText = total;
+}
+
+function resetTemporary() {
+  document.querySelectorAll('#multTable tr').forEach(row => {
+    row.cells[1].querySelector('input').value = 0;
+    row.cells[2].innerText = "0";
+  });
+  updateAll();
+}
+
+function saveToHistory() {
+  const rows = document.querySelectorAll('#multTable tr');
+  const userVal = parseFloat(document.getElementById('userInput').value) || 0;
+  let log = "", total = 0;
+
+  rows.forEach((row, i) => {
+    const perm = parseFloat(row.cells[0].querySelector('input').value);
+    const temp = parseFloat(row.cells[1].querySelector('input').value);
+    const prod = perm * temp;
+    total += prod;
+    log += `Row ${i+1}: ${perm} × ${temp} = ${prod}<br>`;
+  });
+
+  const now = new Date();
+  const div = document.createElement("div");
+  div.className = "history-entry";
+  div.innerHTML = `<div class="timestamp">${now.toLocaleString()}</div>${log}<strong>Total:</strong> ${total}<br><strong>User Input:</strong> ${userVal}`;
+  document.getElementById("historyLog").prepend(div);
+}
+
+function exportPDF() {
+  buildPDFContent();
+  html2pdf().from(document.getElementById('printSection')).save('report.pdf');
+}
+
+function buildPDFContent() {
+  const pdfTable = document.getElementById('pdfTable');
+  const rows = document.querySelectorAll('#multTable tr');
+  pdfTable.innerHTML = "";
+  let total = 0;
+
+  rows.forEach(row => {
+    const perm = row.cells[0].querySelector('input').value;
+    const temp = row.cells[1].querySelector('input').value;
+    const product = perm * temp;
+    total += product;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${perm}</td><td>${temp}</td><td>${product}</td>`;
+    pdfTable.appendChild(tr);
+  });
+
+  document.getElementById('pdfTotal').innerText = total;
+  document.getElementById('pdfInput').innerText = document.getElementById('userInput').value || "-";
+}
+
+function sendEmail() {
+  const email = document.getElementById('emailInput').value;
+  const loader = document.getElementById('loader');
+  const success = document.getElementById('success');
+
+  if (!email) return alert("Please enter a valid email.");
+
+  loader.style.display = "block";
+  success.style.display = "none";
+
+  buildPDFContent();
+
+  html2pdf().from(document.getElementById('printSection')).outputPdf('blob').then(pdfBlob => {
+    const formData = new FormData();
+    formData.append("email", email);
+    formData.append("pdf", pdfBlob, "report.pdf");
+
+    fetch('/send-pdf', {
+      method: "POST",
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      loader.style.display = "none";
+      success.style.display = data.success ? "block" : "none";
+      if (!data.success) alert("❌ Email failed: " + data.message);
+    })
+    .catch(err => {
+      loader.style.display = "none";
+      alert("Error sending email.");
+    });
+  });
+}
+</script>
+</body>
+</html>
